@@ -103,7 +103,7 @@ export default function Dashboard() {
       </header>
 
       <div className="mx-auto max-w-7xl space-y-5 px-4 py-5 md:px-6">
-        <GPADisplay tabs={tabs} />
+        <GPADisplay tabs={tabs} activeTab={activeTab} />
         <YearTabs
           tabs={tabs}
           activeTabId={activeTabId}
