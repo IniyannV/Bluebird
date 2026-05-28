@@ -1,11 +1,10 @@
-import { calcS1Average, calcS2Average } from "../../utils/semesterAverage";
 import Tooltip from "../ui/Tooltip";
 
-const editableFields = ["name", "credits", "level", "mp1", "mp2", "s1Exam", "mp3", "mp4", "s2Exam", "includeInGPA"];
+const editableFields = ["name", "credits", "level", "s1", "s2", "includeInGPA", "ranked"];
 
 function clampGrade(value) {
   if (value === "") return "";
-  const parsed = Number(value);
+  const parsed = Math.round(Number(value));
   if (!Number.isFinite(parsed)) return "";
   return Math.min(100, Math.max(0, parsed));
 }
@@ -13,8 +12,13 @@ function clampGrade(value) {
 function sanitizeCredits(value) {
   if (value === "") return "";
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 1;
-  return Math.max(0.01, parsed);
+  if (!Number.isFinite(parsed) || parsed <= 0) return "";
+  return parsed;
+}
+
+function getAutoCreditsPlaceholder(course) {
+  const hasBoth = course.s1 !== "" && course.s2 !== "";
+  return hasBoth ? "1" : "0.5";
 }
 
 function blockInvalidNumberKeys(event) {
@@ -26,9 +30,6 @@ function cellInputClass(extra = "") {
 }
 
 export default function CourseRow({ tabId, course, index, onUpdate, onDelete }) {
-  const s1 = calcS1Average(course.mp1, course.mp2);
-  const s2 = calcS2Average(course.mp3, course.mp4);
-
   function update(field, value) {
     onUpdate(tabId, course.id, field, value);
   }
@@ -77,12 +78,15 @@ export default function CourseRow({ tabId, course, index, onUpdate, onDelete }) 
           min="0.01"
           step="0.5"
           value={course.credits}
+          placeholder={getAutoCreditsPlaceholder(course)}
           onKeyDown={(event) => {
             blockInvalidNumberKeys(event);
             handleTab(event, "credits");
           }}
           onChange={(event) => update("credits", sanitizeCredits(event.target.value))}
-          onBlur={() => course.credits === "" && update("credits", 1)}
+          onBlur={(event) => {
+            if (event.target.value === "") update("credits", "");
+          }}
           className={cellInputClass()}
         />
       </td>
@@ -106,61 +110,49 @@ export default function CourseRow({ tabId, course, index, onUpdate, onDelete }) 
           <option>Level 4</option>
         </select>
       </td>
-      {["mp1", "mp2", "s1Exam"].map((field) => (
-        <td className="px-1 py-1" key={field}>
-          <label className="sr-only" htmlFor={`${course.id}-${field}`}>
-            {field}
-          </label>
-          <input
-            id={`${course.id}-${field}`}
-            aria-label={field}
-            data-course-id={course.id}
-            data-field={field}
-            type="number"
-            min="0"
-            max="100"
-            value={course[field]}
-            onKeyDown={(event) => {
-              blockInvalidNumberKeys(event);
-              handleTab(event, field);
-            }}
-            onChange={(event) => update(field, clampGrade(event.target.value))}
-            className={cellInputClass()}
-          />
-        </td>
-      ))}
       <td className="px-1 py-1">
-        <div className="rounded bg-app-bg px-2 py-2 font-mono text-sm italic text-app-muted">
-          {s1 === null ? "-" : s1.toFixed(2)}
-        </div>
+        <label className="sr-only" htmlFor={`${course.id}-s1`}>
+          Semester 1 Grade
+        </label>
+        <input
+          id={`${course.id}-s1`}
+          aria-label="Semester 1 Grade"
+          data-course-id={course.id}
+          data-field="s1"
+          type="number"
+          min="0"
+          max="100"
+          step="1"
+          value={course.s1}
+          onKeyDown={(event) => {
+            blockInvalidNumberKeys(event);
+            handleTab(event, "s1");
+          }}
+          onChange={(event) => update("s1", clampGrade(event.target.value))}
+          className={cellInputClass()}
+        />
       </td>
-      {["mp3", "mp4", "s2Exam"].map((field) => (
-        <td className="px-1 py-1" key={field}>
-          <label className="sr-only" htmlFor={`${course.id}-${field}`}>
-            {field}
-          </label>
-          <input
-            id={`${course.id}-${field}`}
-            aria-label={field}
-            data-course-id={course.id}
-            data-field={field}
-            type="number"
-            min="0"
-            max="100"
-            value={course[field]}
-            onKeyDown={(event) => {
-              blockInvalidNumberKeys(event);
-              handleTab(event, field);
-            }}
-            onChange={(event) => update(field, clampGrade(event.target.value))}
-            className={cellInputClass()}
-          />
-        </td>
-      ))}
       <td className="px-1 py-1">
-        <div className="rounded bg-app-bg px-2 py-2 font-mono text-sm italic text-app-muted">
-          {s2 === null ? "-" : s2.toFixed(2)}
-        </div>
+        <label className="sr-only" htmlFor={`${course.id}-s2`}>
+          Semester 2 Grade
+        </label>
+        <input
+          id={`${course.id}-s2`}
+          aria-label="Semester 2 Grade"
+          data-course-id={course.id}
+          data-field="s2"
+          type="number"
+          min="0"
+          max="100"
+          step="1"
+          value={course.s2}
+          onKeyDown={(event) => {
+            blockInvalidNumberKeys(event);
+            handleTab(event, "s2");
+          }}
+          onChange={(event) => update("s2", clampGrade(event.target.value))}
+          className={cellInputClass()}
+        />
       </td>
       <td className="px-1 py-1 text-center">
         <label className="sr-only" htmlFor={`${course.id}-include`}>
@@ -175,6 +167,22 @@ export default function CourseRow({ tabId, course, index, onUpdate, onDelete }) 
           checked={course.includeInGPA}
           onChange={(event) => update("includeInGPA", event.target.checked)}
           onKeyDown={(event) => handleTab(event, "includeInGPA")}
+          className="h-4 w-4 accent-app-accent"
+        />
+      </td>
+      <td className="px-1 py-1 text-center">
+        <label className="sr-only" htmlFor={`${course.id}-ranked`}>
+          Ranked
+        </label>
+        <input
+          id={`${course.id}-ranked`}
+          aria-label="Ranked"
+          data-course-id={course.id}
+          data-field="ranked"
+          type="checkbox"
+          checked={course.ranked !== false}
+          onChange={(event) => update("ranked", event.target.checked)}
+          onKeyDown={(event) => handleTab(event, "ranked")}
           className="h-4 w-4 accent-app-accent"
         />
       </td>

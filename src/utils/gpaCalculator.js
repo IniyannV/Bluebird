@@ -1,5 +1,3 @@
-import { calcS1Average, calcS2Average } from "./semesterAverage";
-
 export const GPA_SCALE = [
   { min: 97, max: 100, "Level 4": 6.0, "Level 3": 5.5, "Level 2": 5.0, "Level 1": 4.0 },
   { min: 94, max: 96, "Level 4": 5.8, "Level 3": 5.3, "Level 2": 4.8, "Level 1": 3.8 },
@@ -22,70 +20,74 @@ export const GPA_SCALE = [
  */
 export function getGPAPoints(average, level) {
   if (average === null || average === undefined) return null;
-  const avg = Math.floor(average);
+  const avg = Math.round(average);
   const row = GPA_SCALE.find((scaleRow) => avg >= scaleRow.min && avg <= scaleRow.max);
   if (!row) return 0;
   return row[level] ?? 0;
 }
 
-/**
- * Calculate one course's weighted GPA contribution.
- * @param {object} course
- * @returns {{points: number, credits: number}|null}
- */
-export function getCourseGPAPoints(course) {
-  if (!course.includeInGPA) return null;
-
-  const s1 = calcS1Average(course.mp1, course.mp2);
-  const s2 = calcS2Average(course.mp3, course.mp4);
-  const pts = [];
-
-  if (s1 !== null) pts.push(getGPAPoints(s1, course.level));
-  if (s2 !== null) pts.push(getGPAPoints(s2, course.level));
-  if (pts.length === 0) return null;
-
-  const avgPoints = pts.reduce((total, point) => total + point, 0) / pts.length;
-  return { points: avgPoints, credits: Number(course.credits) || 1 };
+// Returns effective credits for a course given which semesters are filled
+export function getEffectiveCredits(course) {
+  const hasBoth = course.s1 !== "" && course.s2 !== "";
+  const hasOne = (course.s1 !== "") !== (course.s2 !== "");
+  if (course.credits !== "" && course.credits !== null) return Number(course.credits);
+  if (hasBoth) return 1.0;
+  if (hasOne) return 0.5;
+  return 0;
 }
 
-/**
- * Calculate cumulative weighted GPA across all school-year tabs.
- * @param {Array<{courses: object[]}>} allTabs
- * @returns {number|null}
- */
-export function calcCumulativeGPA(allTabs) {
-  let totalWeightedPoints = 0;
-  let totalCredits = 0;
+// Returns array of {points, weight} for each valid semester in a course
+export function getCourseContributions(course, { rankedOnly = false } = {}) {
+  if (!course.includeInGPA) return [];
+  if (rankedOnly && course.ranked === false) return [];
+  const effectiveCredits = getEffectiveCredits(course);
+  if (effectiveCredits === 0) return [];
 
+  const semesters = [];
+  if (course.s1 !== "" && course.s1 !== null) semesters.push(Number(course.s1));
+  if (course.s2 !== "" && course.s2 !== null) semesters.push(Number(course.s2));
+  if (semesters.length === 0) return [];
+
+  const weightPerSemester = effectiveCredits / semesters.length;
+  return semesters.map((grade) => ({
+    points: getGPAPoints(Math.floor(grade), course.level),
+    weight: weightPerSemester
+  }));
+}
+
+export function calcCumulativeGPA(allTabs, options = {}) {
+  let totalWeighted = 0;
+  let totalWeight = 0;
   for (const tab of allTabs) {
     for (const course of tab.courses || []) {
-      const contribution = getCourseGPAPoints(course);
-      if (!contribution) continue;
-      totalWeightedPoints += contribution.points * contribution.credits;
-      totalCredits += contribution.credits;
+      for (const { points, weight } of getCourseContributions(course, options)) {
+        totalWeighted += points * weight;
+        totalWeight += weight;
+      }
     }
   }
-
-  if (totalCredits === 0) return null;
-  return totalWeightedPoints / totalCredits;
+  return totalWeight === 0 ? null : totalWeighted / totalWeight;
 }
 
-/**
- * Count included GPA credits and courses with at least one complete semester.
- * @param {Array<{courses: object[]}>} allTabs
- * @returns {{credits: number, courses: number}}
- */
-export function getGPAStats(allTabs) {
-  return allTabs.reduce(
-    (stats, tab) => {
-      for (const course of tab.courses || []) {
-        const contribution = getCourseGPAPoints(course);
-        if (!contribution) continue;
-        stats.credits += contribution.credits;
-        stats.courses += 1;
+export function getGPAStats(allTabs, options = {}) {
+  let credits = 0;
+  let courses = 0;
+  for (const tab of allTabs) {
+    for (const course of tab.courses || []) {
+      const contribs = getCourseContributions(course, options);
+      if (contribs.length > 0) {
+        credits += contribs.reduce((s, c) => s + c.weight, 0);
+        courses += 1;
       }
-      return stats;
-    },
-    { credits: 0, courses: 0 }
-  );
+    }
+  }
+  return { credits, courses };
+}
+
+export function calcRankedGPA(allTabs) {
+  return calcCumulativeGPA(allTabs, { rankedOnly: true });
+}
+
+export function getRankedGPAStats(allTabs) {
+  return getGPAStats(allTabs, { rankedOnly: true });
 }

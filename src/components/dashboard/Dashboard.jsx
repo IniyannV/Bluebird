@@ -64,9 +64,9 @@ export default function Dashboard() {
     const file = event.target.files?.[0];
     if (!file || !activeTab) return;
     try {
-      const courses = await importCoursesFromCSV(file, createCourse);
+      const { courses, skipped } = await importCoursesFromCSV(file, createCourse);
       actions.appendCourses(activeTab.id, courses);
-      setToast(`Imported ${courses.length} courses successfully`);
+      setToast(`Imported ${courses.length} courses (${skipped} skipped)`);
     } catch (error) {
       setToast(error.message || "Unable to import CSV");
     } finally {

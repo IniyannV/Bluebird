@@ -20,7 +20,7 @@ export default function CourseTable({ tab, onAddCourse, onUpdateCourse, onDelete
   return (
     <div className="animate-fade overflow-hidden rounded-lg border border-app-border bg-app-surface">
       <div className="max-h-[62vh] overflow-auto">
-        <table className="w-full min-w-[1500px] border-collapse">
+        <table className="w-full min-w-[1080px] border-collapse">
           <TableHeader />
           <tbody>
             {tab.courses.map((course, index) => (

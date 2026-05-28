@@ -2,15 +2,10 @@ const columns = [
   ["Course Name", "min-w-64"],
   ["Credits", "w-24"],
   ["Course Level", "w-36"],
-  ["MP1 Grade", "w-28"],
-  ["MP2 Grade", "w-28"],
-  ["S1 Exam", "w-28"],
-  ["S1 Average", "w-28"],
-  ["MP3 Grade", "w-28"],
-  ["MP4 Grade", "w-28"],
-  ["S2 Exam", "w-28"],
-  ["S2 Average", "w-28"],
+  ["Semester 1 Grade", "w-36"],
+  ["Semester 2 Grade", "w-36"],
   ["Include", "w-24"],
+  ["Ranked", "w-24"],
   ["", "w-16"]
 ];
 

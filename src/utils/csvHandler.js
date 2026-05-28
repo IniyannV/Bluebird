@@ -1,20 +1,15 @@
 import Papa from "papaparse";
-import { calcS1Average, calcS2Average } from "./semesterAverage";
 
 const HEADERS = [
   "Course Name",
   "Credits",
   "Level",
-  "MP1",
-  "MP2",
-  "S1 Exam",
-  "S1 Average",
-  "MP3",
-  "MP4",
-  "S2 Exam",
-  "S2 Average",
-  "Include in GPA"
+  "Semester 1 Grade",
+  "Semester 2 Grade",
+  "Include in GPA",
+  "Ranked"
 ];
+const LEVELS = ["Level 1", "Level 2", "Level 3", "Level 4"];
 
 function slugFileName(name) {
   return `${name || "courses"}_courses.csv`.replace(/[^\w.-]+/g, "_");
@@ -29,10 +24,20 @@ function getByHeader(row, header) {
   return key ? row[key] : "";
 }
 
-function toNumberOrBlank(value) {
+function parseGrade(value) {
+  if (value === "" || value == null) return { valid: true, value: "" };
+  const trimmed = String(value).trim();
+  if (trimmed === "") return { valid: true, value: "" };
+  if (!/^\d+$/.test(trimmed)) return { valid: false, value: "" };
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) return { valid: false, value: "" };
+  return { valid: true, value: parsed };
+}
+
+function parseCredits(value) {
   if (value === "" || value == null) return "";
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : "";
+  const parsed = Number(String(value).trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : "";
 }
 
 /**
@@ -40,24 +45,15 @@ function toNumberOrBlank(value) {
  * @param {{name: string, courses: object[]}} tab
  */
 export function exportCoursesToCSV(tab) {
-  const rows = (tab.courses || []).map((course) => {
-    const s1 = calcS1Average(course.mp1, course.mp2);
-    const s2 = calcS2Average(course.mp3, course.mp4);
-    return {
-      "Course Name": course.name,
-      Credits: course.credits,
-      Level: course.level,
-      MP1: valueOrBlank(course.mp1),
-      MP2: valueOrBlank(course.mp2),
-      "S1 Exam": valueOrBlank(course.s1Exam),
-      "S1 Average": s1 === null ? "" : s1.toFixed(2),
-      MP3: valueOrBlank(course.mp3),
-      MP4: valueOrBlank(course.mp4),
-      "S2 Exam": valueOrBlank(course.s2Exam),
-      "S2 Average": s2 === null ? "" : s2.toFixed(2),
-      "Include in GPA": course.includeInGPA ? "true" : "false"
-    };
-  });
+  const rows = (tab.courses || []).map((course) => ({
+    "Course Name": course.name,
+    Credits: valueOrBlank(course.credits),
+    Level: course.level,
+    "Semester 1 Grade": valueOrBlank(course.s1),
+    "Semester 2 Grade": valueOrBlank(course.s2),
+    "Include in GPA": course.includeInGPA ? "true" : "false",
+    Ranked: course.ranked === false ? "false" : "true"
+  }));
 
   const csv = Papa.unparse(rows, { columns: HEADERS });
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -73,7 +69,7 @@ export function exportCoursesToCSV(tab) {
  * Parse a CSV file and map rows to course objects.
  * @param {File} file
  * @param {(course: Partial<object>) => object} createCourse
- * @returns {Promise<object[]>}
+ * @returns {Promise<{courses: object[], skipped: number}>}
  */
 export function importCoursesFromCSV(file, createCourse) {
   return new Promise((resolve, reject) => {
@@ -81,25 +77,43 @@ export function importCoursesFromCSV(file, createCourse) {
       header: true,
       skipEmptyLines: true,
       complete: ({ data }) => {
-        const courses = data
-          .map((row) => {
-            const name = String(getByHeader(row, "Course Name") || "").trim();
-            if (!name) return null;
-            return createCourse({
+        let skipped = 0;
+        const courses = [];
+
+        for (const row of data) {
+          const name = String(getByHeader(row, "Course Name") || "").trim();
+          if (!name) {
+            skipped += 1;
+            continue;
+          }
+
+          const level = String(getByHeader(row, "Level") || "").trim();
+          if (!LEVELS.includes(level)) {
+            skipped += 1;
+            continue;
+          }
+
+          const s1 = parseGrade(getByHeader(row, "Semester 1 Grade"));
+          const s2 = parseGrade(getByHeader(row, "Semester 2 Grade"));
+          if (!s1.valid || !s2.valid) {
+            skipped += 1;
+            continue;
+          }
+
+          courses.push(
+            createCourse({
               name,
-              credits: toNumberOrBlank(getByHeader(row, "Credits")) || 1,
-              level: getByHeader(row, "Level") || "Level 1",
-              mp1: toNumberOrBlank(getByHeader(row, "MP1")),
-              mp2: toNumberOrBlank(getByHeader(row, "MP2")),
-              s1Exam: toNumberOrBlank(getByHeader(row, "S1 Exam")),
-              mp3: toNumberOrBlank(getByHeader(row, "MP3")),
-              mp4: toNumberOrBlank(getByHeader(row, "MP4")),
-              s2Exam: toNumberOrBlank(getByHeader(row, "S2 Exam")),
-              includeInGPA: String(getByHeader(row, "Include in GPA")).toLowerCase() !== "false"
-            });
-          })
-          .filter(Boolean);
-        resolve(courses);
+              credits: parseCredits(getByHeader(row, "Credits")),
+              level,
+              s1: s1.value,
+              s2: s2.value,
+              includeInGPA: String(getByHeader(row, "Include in GPA")).trim().toLowerCase() !== "false",
+              ranked: String(getByHeader(row, "Ranked")).trim().toLowerCase() !== "false"
+            })
+          );
+        }
+
+        resolve({ courses, skipped });
       },
       error: reject
     });

@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useReducer } from "react";
 
 const YEAR_NAMES = ["Freshman Year", "Sophomore Year", "Junior Year", "Senior Year"];
-const LEVELS = ["Level 1", "Level 2", "Level 3", "Level 4"];
 
 function uuid() {
   if (crypto?.randomUUID) return crypto.randomUUID();
@@ -9,21 +8,16 @@ function uuid() {
 }
 
 export function createCourse(overrides = {}) {
-  const level = LEVELS.includes(overrides.level) ? overrides.level : "Level 1";
   return {
     id: uuid(),
     name: "",
-    credits: 1,
-    level,
-    mp1: "",
-    mp2: "",
-    s1Exam: "",
-    mp3: "",
-    mp4: "",
-    s2Exam: "",
+    credits: "",
+    level: "Level 2",
+    s1: "",
+    s2: "",
     includeInGPA: true,
-    ...overrides,
-    level
+    ranked: true,
+    ...overrides
   };
 }
 
