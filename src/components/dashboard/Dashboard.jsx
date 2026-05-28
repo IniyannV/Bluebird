@@ -89,8 +89,8 @@ export default function Dashboard() {
       <header className="border-b border-app-border bg-app-bg/95 px-4 py-4 backdrop-blur md:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-xl font-bold text-app-text">CHS GPA Calculator</h1>
-            <p className="text-sm text-app-muted">Spreadsheet-style weighted GPA tracking</p>
+            <h1 className="text-xl font-bold text-app-text">Bluebird</h1>
+            <p className="text-sm text-app-muted">Spreadsheet-style weighted GPA tracking for Bluebird</p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span className="text-app-muted">{user.email}</span>

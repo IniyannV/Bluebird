@@ -5,14 +5,14 @@ export default {
     extend: {
       colors: {
         app: {
-          bg: "#0a0a0f",
-          surface: "#111118",
-          surfaceAlt: "#0f0f16",
-          border: "#1e1e2e",
-          accent: "#6366f1",
-          accentHover: "#818cf8",
-          text: "#e2e8f0",
-          muted: "#64748b",
+          bg: "#03080f",
+          surface: "#070f1c",
+          surfaceAlt: "#050d18",
+          border: "#0d2040",
+          accent: "#2d7ef7",
+          accentHover: "#5b9ffa",
+          text: "#ddeeff",
+          muted: "#4a6a8a",
           success: "#22d3a5",
           danger: "#f43f5e"
         }
@@ -30,7 +30,7 @@ export default {
           "100%": { opacity: "1", transform: "translateY(0)" }
         },
         "gpa-pulse": {
-          "0%, 100%": { color: "#6366f1" },
+          "0%, 100%": { color: "#2d7ef7" },
           "50%": { color: "#22d3a5" }
         },
         "toast-in": {

@@ -10,10 +10,10 @@ function AuthScreen() {
       <section className="w-full max-w-md rounded-lg border border-app-border bg-app-surface p-6 shadow-2xl">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-md border border-app-accent/40 bg-app-accent/15 font-mono text-lg font-bold text-app-accent">
-            CHS
+            B
           </div>
-          <h1 className="text-2xl font-bold text-app-text">CHS GPA Calculator</h1>
-          <p className="mt-1 text-sm text-app-muted">Weighted GPA tracking for Coppell High School.</p>
+          <h1 className="text-2xl font-bold text-app-text">Bluebird</h1>
+          <p className="mt-1 text-sm text-app-muted">Weighted GPA tracking for Bluebird.</p>
         </div>
         <LoginForm onSignInWithGoogle={signInWithGoogle} />
       </section>
@@ -27,7 +27,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-app-bg text-app-muted">
-        Loading CHS GPA Calculator...
+        Loading Bluebird...
       </div>
     );
   }
