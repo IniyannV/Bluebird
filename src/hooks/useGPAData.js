@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useReducer } from "react";
 
 const YEAR_NAMES = ["Freshman Year", "Sophomore Year", "Junior Year", "Senior Year"];
+const MAX_TABS = 8;
+const MAX_COURSES_PER_TAB = 12;
 
 function uuid() {
   if (crypto?.randomUUID) return crypto.randomUUID();
@@ -45,6 +47,7 @@ function reducer(state, action) {
       return { tabs, activeTabId: tabs[0]?.id || null };
     }
     case "ADD_TAB": {
+      if (state.tabs.length >= MAX_TABS) return state;
       const name = YEAR_NAMES[state.tabs.length] || `School Year ${state.tabs.length + 1}`;
       const tab = createTab(name, state.tabs.length);
       return { tabs: [...state.tabs, tab], activeTabId: tab.id };
@@ -73,20 +76,28 @@ function reducer(state, action) {
     case "REORDER_TABS": {
       return { ...state, tabs: sortTabs(action.tabs) };
     }
-    case "ADD_COURSE":
+    case "ADD_COURSE": {
+      const targetTab = state.tabs.find((tab) => tab.id === action.tabId);
+      if (!targetTab || targetTab.courses.length >= MAX_COURSES_PER_TAB) return state;
       return {
         ...state,
         tabs: state.tabs.map((tab) =>
           tab.id === action.tabId ? { ...tab, courses: [...tab.courses, createCourse()] } : tab
         )
       };
-    case "APPEND_COURSES":
+    }
+    case "APPEND_COURSES": {
+      const targetTab = state.tabs.find((tab) => tab.id === action.tabId);
+      if (!targetTab || targetTab.courses.length >= MAX_COURSES_PER_TAB) return state;
+      const availableSlots = MAX_COURSES_PER_TAB - targetTab.courses.length;
+      const courses = action.courses.slice(0, availableSlots);
       return {
         ...state,
         tabs: state.tabs.map((tab) =>
-          tab.id === action.tabId ? { ...tab, courses: [...tab.courses, ...action.courses] } : tab
+          tab.id === action.tabId ? { ...tab, courses: [...tab.courses, ...courses] } : tab
         )
       };
+    }
     case "UPDATE_COURSE":
       return {
         ...state,
@@ -146,5 +157,7 @@ export function useGPAData() {
 
   const resetTabs = useCallback(() => dispatch({ type: "SET_TABS", tabs: getDefaultTabs() }), []);
 
-  return { tabs: state.tabs, activeTab, activeTabId: state.activeTabId, actions, resetTabs, createCourse };
+  const atTabLimit = state.tabs.length >= MAX_TABS;
+
+  return { tabs: state.tabs, activeTab, activeTabId: state.activeTabId, atTabLimit, actions, resetTabs, createCourse };
 }

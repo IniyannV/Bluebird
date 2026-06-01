@@ -8,7 +8,7 @@ export function useFirestore(user) {
   const loadTabs = useCallback(async () => {
     if (!user) return null;
     return fetchUserTabs(user.uid);
-  }, [user]);
+  }, [user?.uid]);
 
   const saveTabs = useCallback(
     async (tabs) => {
@@ -21,7 +21,7 @@ export function useFirestore(user) {
         setSaving(false);
       }
     },
-    [user]
+    [user?.uid]
   );
 
   return { loadTabs, saveTabs, saving, lastSavedAt };

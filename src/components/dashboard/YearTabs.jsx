@@ -112,7 +112,7 @@ function SortableTab({ tab, active, onSelect, onRename, onDuplicate, onDelete })
   );
 }
 
-export default function YearTabs({ tabs, activeTabId, onSelect, onAdd, onRename, onDuplicate, onDelete, onReorder }) {
+export default function YearTabs({ tabs, activeTabId, disableAdd, onSelect, onAdd, onRename, onDuplicate, onDelete, onReorder }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -144,8 +144,11 @@ export default function YearTabs({ tabs, activeTabId, onSelect, onAdd, onRename,
             ))}
             <button
               aria-label="Add school year"
+              disabled={disableAdd}
               onClick={onAdd}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-app-border bg-app-surface text-lg font-bold text-app-muted transition-all duration-150 hover:border-app-accent hover:text-white"
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-app-border bg-app-surface text-lg font-bold text-app-muted transition-all duration-150 hover:border-app-accent hover:text-white ${
+                disableAdd ? "cursor-not-allowed opacity-50" : ""
+              }`}
             >
               +
             </button>

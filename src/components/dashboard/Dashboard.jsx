@@ -12,11 +12,12 @@ import { exportCoursesToCSV, importCoursesFromCSV } from "../../utils/csvHandler
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const { loadTabs, saveTabs, saving } = useFirestore(user);
-  const { tabs, activeTab, activeTabId, actions, resetTabs, createCourse } = useGPAData();
+  const { tabs, activeTab, activeTabId, atTabLimit, actions, resetTabs, createCourse } = useGPAData();
   const [bootstrapped, setBootstrapped] = useState(false);
   const [deleteTabId, setDeleteTabId] = useState(null);
   const [toast, setToast] = useState("");
   const fileInputRef = useRef(null);
+  const lastSavedTabsRef = useRef(tabs);
 
   useEffect(() => {
     let mounted = true;
@@ -42,12 +43,27 @@ export default function Dashboard() {
   useEffect(() => {
     if (!bootstrapped || !user) return undefined;
     const timeout = setTimeout(() => {
-      saveTabs(tabs).catch((error) => {
-        setToast(error.message || "Unable to save changes");
-      });
+      saveTabs(tabs)
+        .then(() => {
+          lastSavedTabsRef.current = tabs;
+        })
+        .catch((error) => {
+          setToast(error.message || "Unable to save changes");
+        });
     }, 1500);
     return () => clearTimeout(timeout);
   }, [tabs, bootstrapped, user, saveTabs]);
+
+  useEffect(() => {
+    function handleBeforeUnload(e) {
+      if (JSON.stringify(tabs) !== JSON.stringify(lastSavedTabsRef.current)) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [tabs]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -56,6 +72,11 @@ export default function Dashboard() {
   }, [toast]);
 
   async function handleLogout() {
+    try {
+      await saveTabs(tabs);
+    } catch {
+      // best effort
+    }
     resetTabs();
     await logout();
   }
@@ -66,7 +87,13 @@ export default function Dashboard() {
     try {
       const { courses, skipped } = await importCoursesFromCSV(file, createCourse);
       actions.appendCourses(activeTab.id, courses);
-      setToast(`Imported ${courses.length} courses (${skipped} skipped)`);
+      const nextCourseCount = Math.min(12, activeTab.courses.length + courses.length);
+      const importedCount = nextCourseCount - activeTab.courses.length;
+      if (importedCount < courses.length) {
+        setToast(`Imported ${importedCount} of ${courses.length} courses (tab limit of 12 reached)`);
+      } else {
+        setToast(`Imported ${courses.length} courses (${skipped} skipped)`);
+      }
     } catch (error) {
       setToast(error.message || "Unable to import CSV");
     } finally {
@@ -113,6 +140,7 @@ export default function Dashboard() {
           onDuplicate={actions.duplicateTab}
           onDelete={setDeleteTabId}
           onReorder={actions.reorderTabs}
+          disableAdd={atTabLimit}
         />
         <section className="flex flex-wrap items-center justify-between gap-3">
           <div>

@@ -10,6 +10,8 @@ const HEADERS = [
   "Ranked"
 ];
 const LEVELS = ["Level 1", "Level 2", "Level 3", "Level 4"];
+const MAX_FILE_BYTES = 1_000_000;
+const MAX_ROWS = 50;
 
 function slugFileName(name) {
   return `${name || "courses"}_courses.csv`.replace(/[^\w.-]+/g, "_");
@@ -72,11 +74,19 @@ export function exportCoursesToCSV(tab) {
  * @returns {Promise<{courses: object[], skipped: number}>}
  */
 export function importCoursesFromCSV(file, createCourse) {
+  if (file.size > MAX_FILE_BYTES) {
+    return Promise.reject(new Error("CSV file is too large. Maximum size is 1MB."));
+  }
+
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: ({ data }) => {
+        if (data.length > MAX_ROWS) {
+          return reject(new Error(`CSV has too many rows. Maximum is ${MAX_ROWS} courses per import.`));
+        }
+
         let skipped = 0;
         const courses = [];
 
