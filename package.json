@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "homepage": "https://iniyannv.github.io/bluebird",
+  "homepage": "https://iniyannv.github.io/Bluebird",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && cp dist/index.html dist/404.html",
     "preview:pages": "vite preview --base=/Bluebird/",
     "preview": "vite preview",
     "predeploy": "npm run build",
