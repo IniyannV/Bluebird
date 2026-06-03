@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   closestCenter,
   DndContext,
@@ -18,15 +18,104 @@ import { CSS } from "@dnd-kit/utilities";
 
 function SortableTab({ tab, active, onSelect, onRename, onDuplicate, onDelete }) {
   const [editing, setEditing] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menu, setMenu] = useState(null);
   const [draft, setDraft] = useState(tab.name);
+  const menuRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const longPressStartRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const menuOpen = Boolean(menu);
 
   function commitRename() {
     setEditing(false);
     onRename(tab.id, draft);
   }
+
+  function closeMenu() {
+    setMenu(null);
+  }
+
+  function clearLongPressTimer() {
+    if (!longPressTimerRef.current) return;
+    clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+  }
+
+  function openMenuAt(x, y) {
+    const menuWidth = 144;
+    const menuHeight = 124;
+    setMenu({
+      x: Math.max(8, Math.min(x, window.innerWidth - menuWidth - 8)),
+      y: Math.max(8, Math.min(y, window.innerHeight - menuHeight - 8))
+    });
+  }
+
+  function openContextMenu(event) {
+    event.preventDefault();
+    openMenuAt(event.clientX, event.clientY);
+  }
+
+  function handleTouchStart(event) {
+    if (editing || event.touches.length !== 1) return;
+
+    const touch = event.touches[0];
+    longPressTriggeredRef.current = false;
+    longPressStartRef.current = { x: touch.clientX, y: touch.clientY };
+    clearLongPressTimer();
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      openMenuAt(touch.clientX, touch.clientY);
+    }, 550);
+  }
+
+  function handleTouchMove(event) {
+    const touch = event.touches[0];
+    const start = longPressStartRef.current;
+    if (!touch || !start) return;
+
+    const distance = Math.hypot(touch.clientX - start.x, touch.clientY - start.y);
+    if (distance > 10) clearLongPressTimer();
+  }
+
+  function handleTouchEnd(event) {
+    clearLongPressTimer();
+    longPressStartRef.current = null;
+    if (!longPressTriggeredRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    function handlePointerDown(event) {
+      if (menuRef.current?.contains(event.target)) return;
+      closeMenu();
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") closeMenu();
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => () => clearLongPressTimer(), []);
+
+  const menuStyle = { left: menu?.x, top: menu?.y };
 
   return (
     <div ref={setNodeRef} style={style} className={`relative shrink-0 ${isDragging ? "z-20 opacity-80" : ""}`}>
@@ -36,10 +125,11 @@ function SortableTab({ tab, active, onSelect, onRename, onDuplicate, onDelete })
             ? "border-app-accent bg-app-accent text-white"
             : "border-app-border bg-app-surface text-app-muted hover:border-app-accent hover:text-white"
         }`}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          setMenuOpen(true);
-        }}
+        onContextMenu={openContextMenu}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         {editing ? (
           <input
@@ -57,8 +147,16 @@ function SortableTab({ tab, active, onSelect, onRename, onDuplicate, onDelete })
         ) : (
           <button
             aria-label={`Open ${tab.name}`}
-            className="cursor-grab text-sm font-semibold"
-            onClick={() => onSelect(tab.id)}
+            className="cursor-grab select-none text-sm font-semibold"
+            onClick={(event) => {
+              if (longPressTriggeredRef.current) {
+                event.preventDefault();
+                event.stopPropagation();
+                longPressTriggeredRef.current = false;
+                return;
+              }
+              onSelect(tab.id);
+            }}
             onDoubleClick={() => setEditing(true)}
             {...attributes}
             {...listeners}
@@ -66,21 +164,18 @@ function SortableTab({ tab, active, onSelect, onRename, onDuplicate, onDelete })
             {tab.name}
           </button>
         )}
-        <button
-          aria-label={`Open menu for ${tab.name}`}
-          className="rounded-full px-1 text-sm transition-all duration-150 hover:bg-white/10"
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          ...
-        </button>
       </div>
       {menuOpen && (
-        <div className="absolute right-0 top-11 z-30 w-36 rounded-md border border-app-border bg-app-surface p-1 shadow-xl">
+        <div
+          ref={menuRef}
+          className="fixed z-30 w-36 rounded-md border border-app-border bg-app-surface p-1 shadow-xl"
+          style={menuStyle}
+        >
           <button
             aria-label={`Rename ${tab.name}`}
             className="block w-full rounded px-3 py-2 text-left text-sm text-app-text transition-all duration-150 hover:bg-white/5"
             onClick={() => {
-              setMenuOpen(false);
+              closeMenu();
               setEditing(true);
             }}
           >
@@ -90,7 +185,7 @@ function SortableTab({ tab, active, onSelect, onRename, onDuplicate, onDelete })
             aria-label={`Duplicate ${tab.name}`}
             className="block w-full rounded px-3 py-2 text-left text-sm text-app-text transition-all duration-150 hover:bg-white/5"
             onClick={() => {
-              setMenuOpen(false);
+              closeMenu();
               onDuplicate(tab.id);
             }}
           >
@@ -100,7 +195,7 @@ function SortableTab({ tab, active, onSelect, onRename, onDuplicate, onDelete })
             aria-label={`Delete ${tab.name}`}
             className="block w-full rounded px-3 py-2 text-left text-sm text-app-danger transition-all duration-150 hover:bg-app-danger/10"
             onClick={() => {
-              setMenuOpen(false);
+              closeMenu();
               onDelete(tab.id);
             }}
           >
@@ -144,7 +239,7 @@ export default function YearTabs({ tabs, activeTabId, disableAdd, onSelect, onAd
             ))}
             <button
               aria-label="Add school year"
-              disabled={disableAdd}
+              aria-disabled={disableAdd}
               onClick={onAdd}
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-app-border bg-app-surface text-lg font-bold text-app-muted transition-all duration-150 hover:border-app-accent hover:text-white ${
                 disableAdd ? "cursor-not-allowed opacity-50" : ""

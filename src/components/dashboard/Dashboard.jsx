@@ -6,13 +6,13 @@ import GPADisplay from "./GPADisplay";
 import YearTabs from "./YearTabs";
 import { useAuth } from "../../hooks/useAuth";
 import { useFirestore } from "../../hooks/useFirestore";
-import { useGPAData } from "../../hooks/useGPAData";
+import { MAX_COURSES_PER_TAB, MAX_TABS, useGPAData } from "../../hooks/useGPAData";
 import { exportCoursesToCSV, importCoursesFromCSV } from "../../utils/csvHandler";
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const { loadTabs, saveTabs, saving } = useFirestore(user);
-  const { tabs, activeTab, activeTabId, atTabLimit, actions, resetTabs, createCourse } = useGPAData();
+  const { tabs, activeTab, activeTabId, atTabLimit, atCourseLimit, actions, resetTabs, createCourse } = useGPAData();
   const [bootstrapped, setBootstrapped] = useState(false);
   const [deleteTabId, setDeleteTabId] = useState(null);
   const [toast, setToast] = useState("");
@@ -81,16 +81,49 @@ export default function Dashboard() {
     await logout();
   }
 
+  function showTabLimitToast() {
+    setToast(`You can only have up to ${MAX_TABS} year tabs.`);
+  }
+
+  function showCourseLimitToast() {
+    setToast(`You can only have up to ${MAX_COURSES_PER_TAB} course rows in a year.`);
+  }
+
+  function handleAddTab() {
+    if (atTabLimit) {
+      showTabLimitToast();
+      return;
+    }
+    actions.addTab();
+  }
+
+  function handleDuplicateTab(tabId) {
+    if (atTabLimit) {
+      showTabLimitToast();
+      return;
+    }
+    actions.duplicateTab(tabId);
+  }
+
+  function handleAddCourse(tabId) {
+    const targetTab = tabs.find((tab) => tab.id === tabId);
+    if (!targetTab || targetTab.courses.length >= MAX_COURSES_PER_TAB) {
+      showCourseLimitToast();
+      return;
+    }
+    actions.addCourse(tabId);
+  }
+
   async function handleImport(event) {
     const file = event.target.files?.[0];
     if (!file || !activeTab) return;
     try {
       const { courses, skipped } = await importCoursesFromCSV(file, createCourse);
       actions.appendCourses(activeTab.id, courses);
-      const nextCourseCount = Math.min(12, activeTab.courses.length + courses.length);
+      const nextCourseCount = Math.min(MAX_COURSES_PER_TAB, activeTab.courses.length + courses.length);
       const importedCount = nextCourseCount - activeTab.courses.length;
       if (importedCount < courses.length) {
-        setToast(`Imported ${importedCount} of ${courses.length} courses (tab limit of 12 reached)`);
+        setToast(`Imported ${importedCount} of ${courses.length} courses (row limit of ${MAX_COURSES_PER_TAB} reached)`);
       } else {
         setToast(`Imported ${courses.length} courses (${skipped} skipped)`);
       }
@@ -135,9 +168,9 @@ export default function Dashboard() {
           tabs={tabs}
           activeTabId={activeTabId}
           onSelect={actions.setActiveTab}
-          onAdd={actions.addTab}
+          onAdd={handleAddTab}
           onRename={actions.renameTab}
-          onDuplicate={actions.duplicateTab}
+          onDuplicate={handleDuplicateTab}
           onDelete={setDeleteTabId}
           onReorder={actions.reorderTabs}
           disableAdd={atTabLimit}
@@ -162,7 +195,12 @@ export default function Dashboard() {
             <Button aria-label="Export CSV" onClick={() => activeTab && exportCoursesToCSV(activeTab)}>
               Export CSV
             </Button>
-            <Button aria-label="Add course" variant="primary" onClick={() => actions.addCourse(activeTab.id)}>
+            <Button
+              aria-label="Add course"
+              variant="primary"
+              className={atCourseLimit ? "cursor-not-allowed opacity-60" : ""}
+              onClick={() => handleAddCourse(activeTab.id)}
+            >
               Add Course
             </Button>
           </div>
@@ -170,7 +208,7 @@ export default function Dashboard() {
         {activeTab && (
           <CourseTable
             tab={activeTab}
-            onAddCourse={actions.addCourse}
+            onAddCourse={handleAddCourse}
             onUpdateCourse={actions.updateCourse}
             onDeleteCourse={actions.deleteCourse}
           />
@@ -191,7 +229,7 @@ export default function Dashboard() {
       </Modal>
 
       {toast && (
-        <div className="fixed bottom-4 right-4 z-50 animate-toast-in rounded-md border border-app-border bg-app-surface px-4 py-3 text-sm font-semibold text-app-text shadow-xl">
+        <div className="fixed left-1/2 top-5 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 animate-toast-in rounded-md border border-app-accent/60 bg-app-surface px-4 py-3 text-center text-sm font-semibold text-app-text shadow-xl">
           {toast}
         </div>
       )}

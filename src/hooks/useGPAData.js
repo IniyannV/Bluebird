@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useReducer } from "react";
 
 const YEAR_NAMES = ["Freshman Year", "Sophomore Year", "Junior Year", "Senior Year"];
-const MAX_TABS = 8;
-const MAX_COURSES_PER_TAB = 12;
+export const MAX_TABS = 8;
+export const MAX_COURSES_PER_TAB = 12;
 
 function uuid() {
   if (crypto?.randomUUID) return crypto.randomUUID();
@@ -60,6 +60,7 @@ function reducer(state, action) {
         tabs: state.tabs.map((tab) => (tab.id === action.tabId ? { ...tab, name: action.name.trim() || tab.name } : tab))
       };
     case "DUPLICATE_TAB": {
+      if (state.tabs.length >= MAX_TABS) return state;
       const original = state.tabs.find((tab) => tab.id === action.tabId);
       if (!original) return state;
       const copy = createTab(`${original.name} Copy`, state.tabs.length, original.courses.map((course) => createCourse(course)));
@@ -158,6 +159,16 @@ export function useGPAData() {
   const resetTabs = useCallback(() => dispatch({ type: "SET_TABS", tabs: getDefaultTabs() }), []);
 
   const atTabLimit = state.tabs.length >= MAX_TABS;
+  const atCourseLimit = Boolean(activeTab?.courses.length >= MAX_COURSES_PER_TAB);
 
-  return { tabs: state.tabs, activeTab, activeTabId: state.activeTabId, atTabLimit, actions, resetTabs, createCourse };
+  return {
+    tabs: state.tabs,
+    activeTab,
+    activeTabId: state.activeTabId,
+    atTabLimit,
+    atCourseLimit,
+    actions,
+    resetTabs,
+    createCourse
+  };
 }
